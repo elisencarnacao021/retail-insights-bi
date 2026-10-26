@@ -1,0 +1,31 @@
+
+# Ambiente virtual
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Arquivos temporários
+tempCodeRunnerFile.py
+*.log
+.DS_Store
+Thumbs.db
+
+# Configurações locais e credenciais
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# IDE
+.vscode/
+
+# Arquivo original de trabalho
+dados/originais/*.xlsx
+
+# Não excluir a base tratada necessária ao dashboard.
+# A publicação desse CSV depende da revisão de seus campos.
+
