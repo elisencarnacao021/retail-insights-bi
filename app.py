@@ -221,18 +221,88 @@ tab_geral, tab_tempo, tab_paises, tab_produtos, tab_metodo = st.tabs([
     "Visão geral", "Evolução temporal", "Países", "Produtos", "Metodologia"
 ])
 with tab_geral:
-    st.subheader("Indicadores do período selecionado")
-    k = indicadores(filtrados)
-    colunas_kpi = st.columns(5)
-    for coluna, titulo, valor in zip(colunas_kpi,
-            ["Valor bruto elegível", "Pedidos distintos", "Unidades", "Ticket médio", "Mediana por pedido"],
-            [moeda(k["valor"]), formatar_numero_br(k["pedidos"], 0),
-             formatar_numero_br(k["unidades"], 0),
-             moeda(k["ticket_medio"]), moeda(k["mediana"]) ]):
-        coluna.metric(titulo, valor)
-    st.info("O ticket médio é valor bruto elegível dividido pelo número de notas distintas. "
-            "A mediana representa o valor central dos pedidos, menos influenciado por extremos.")
+    # Reduz a fonte dos cartões para impedir corte de valores em BRL e GBP.
+    st.markdown("""
+    <style>
+    div[data-testid="stMetricValue"] {
+        font-size: 1.45rem !important;
+        line-height: 1.3 !important;
+        white-space: nowrap !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    # ====================================================
+    # ABA VISÃO GERAL - INDICADORES COM VALOR RESUMIDO
+    # ====================================================
 
+    st.subheader("Indicadores do período selecionado")
+
+    # Calcula os indicadores usando os filtros ativos.
+    k = indicadores(filtrados)
+
+    # Obtém o valor monetário na moeda selecionada.
+    # Reutiliza a função existente, sem calcular
+    # a cotação novamente.
+    valor_convertido = valor_exibicao(
+        pd.DataFrame({"Valor_GBP": [k["valor"]]})
+    ).iloc[0]
+
+    # Formata apenas a apresentação do valor bruto.
+    # Os cálculos e a precisão da base são preservados.
+    if abs(valor_convertido) >= 1_000_000:
+        valor_resumido = (
+            formatar_numero_br(valor_convertido / 1_000_000, 2)
+            + " mi"
+        )
+    elif abs(valor_convertido) >= 1_000:
+        valor_resumido = (
+            formatar_numero_br(valor_convertido / 1_000, 2)
+            + " mil"
+        )
+    else:
+        valor_resumido = formatar_numero_br(
+            valor_convertido, 2
+        )
+
+    # Adiciona o símbolo da moeda selecionada.
+    if moeda_escolhida == "BRL (simulação)":
+        valor_resumido = "R$ " + valor_resumido
+    else:
+        valor_resumido = "£ " + valor_resumido
+
+    # Cria os cinco cartões de indicadores.
+    colunas_kpi = st.columns(5)
+
+    titulos = [
+        "Valor bruto elegível",
+        "Pedidos distintos",
+        "Unidades",
+        "Ticket médio",
+        "Mediana por pedido"
+    ]
+
+    valores = [
+        valor_resumido,
+        formatar_numero_br(k["pedidos"], 0),
+        formatar_numero_br(k["unidades"], 0),
+        moeda(k["ticket_medio"]),
+        moeda(k["mediana"])
+    ]
+
+    # Apresenta cada indicador no seu cartão.
+    for coluna, titulo, valor in zip(
+        colunas_kpi, titulos, valores
+    ):
+        coluna.metric(titulo, valor)
+
+    st.info(
+        "O ticket médio corresponde ao valor bruto elegível "
+        "dividido pelo número de pedidos distintos. "
+        "A mediana representa o valor central dos pedidos "
+        "e é menos influenciada pelos valores extremos."
+    )
+
+# A próxima seção deve começar aqui, sem outro else:
 with tab_tempo:
     st.subheader("Evolução mensal do valor bruto elegível")
     mensal = vendas_mensais(filtrados)
