@@ -48,8 +48,6 @@ Privacidade: o campo CustomerID não foi incluído na base analítica exportada 
 
 O projeto foi organizado em módulos independentes, documentados e executados sequencialmente, mantendo uma cópia do arquivo original.
 
-
-
 **Fluxo geral do projeto:**
 
 ```text
@@ -292,10 +290,9 @@ A pasta .venv é local e não deve ser versionada. Arquivos transitórios gerado
 15. Organização, publicação e links de entrega
     Preencher somente após cada publicação efetiva, verificando se os endereços abrem com as permissões exigidas:
     Entrega	Endereço / evidência
-    Repositório pessoal GitHub (privado)	[INSERIR URL E PERMISSÃO DE AVALIAÇÃO]
+    Repositório pessoal GitHub (privado)	[`https://github.com/elisencarnacao021/retail-insights-bi`]
     Histórico de commits	[VALIDAR NO GITHUB]
-    Quadro Trello	[INSERIR LINK COM ACESSO AUTORIZADO]
-    Aplicação Streamlit publicada	[INSERIR LINK PÚBLICO]
+    Aplicação Streamlit publicada	[`https://retail-insights-bi.streamlit.app/`]
     Projeto no repositório oficial da turma	[INSERIR LINK]
     Publicação do vídeo no LinkedIn	[INSERIR LINK]
     Vídeo no Google Drive (leitor para quem tem o link)	[INSERIR LINK]
