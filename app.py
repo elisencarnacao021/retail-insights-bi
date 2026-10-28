@@ -123,8 +123,41 @@ def moeda(valor: float) -> str:
 def rotulo_moeda() -> str:
     return "R$ (simulação)" if moeda_escolhida == "BRL (simulação)" else "£"
 
+
 def valor_exibicao(df, coluna="Valor_GBP"):
     return df[coluna] * (taxa_brl if moeda_escolhida == "BRL (simulação)" else 1.0)
+
+
+def formatar_numero_br(valor, casas=2):
+    """Formata somente a APRESENTAÇÃO no padrão brasileiro."""
+    return f"{valor:,.{casas}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def formatar_valor_monetario(valor, codigo):
+    simbolo = "R$" if codigo == "BRL" else "£"
+    return f"{simbolo} {formatar_numero_br(valor)}"
+
+
+def tabela_comercial(df, nome_coluna="País"):
+    """Tabela gerencial em pt-BR, preservando valores numéricos originais."""
+    tabela = pd.DataFrame({
+        nome_coluna: df[nome_coluna].astype(str),
+        "Vendas em libras (£)": df["Valor_GBP"].apply(
+            lambda x: formatar_valor_monetario(x, "GBP")
+        ),
+        "Pedidos distintos": df["Pedidos"].apply(
+            lambda x: formatar_numero_br(x, 0)
+        ),
+    })
+    if "Unidades" in df.columns:
+        tabela["Unidades vendidas"] = df["Unidades"].apply(
+            lambda x: formatar_numero_br(x, 0)
+        )
+    if moeda_escolhida == "BRL (simulação)":
+        tabela["Vendas convertidas (R$)"] = df["Valor_Exibicao"].apply(
+            lambda x: formatar_valor_monetario(x, "BRL")
+        )
+    return tabela
 
 
 # 4. Tratamento de problemas de leitura de forma compreensivel.
@@ -152,10 +185,10 @@ taxa_brl = 1.0
 if moeda_escolhida == "BRL (simulação)":
     taxa_brl = st.sidebar.number_input(
         "Cotação informada: R$ por £1", min_value=0.01,
-        value=7.00, step=0.01, format="%.2f",
-        help="Valor ilustrativo alterável, NÃO é cotação atual verificada."
+        value=7.1001, step=0.0001, format="%.4f",
+        help="Referência: PTAX de 27/10/2026, R$ 7,1001 por GBP. Cotação manual, não ao vivo."
     )
-    st.sidebar.caption("Conversão ilustrativa, sem consulta cambial automática.")
+    st.sidebar.caption("Referência: GBP/BRL, PTAX 27/10/2026 — R$ 7,1001 por £1. Taxa editável e não atualizada automaticamente.")
 periodo = st.sidebar.date_input(
     "Período das transações", value=(min_data, max_data),
     min_value=min_data, max_value=max_data
@@ -193,7 +226,8 @@ with tab_geral:
     colunas_kpi = st.columns(5)
     for coluna, titulo, valor in zip(colunas_kpi,
             ["Valor bruto elegível", "Pedidos distintos", "Unidades", "Ticket médio", "Mediana por pedido"],
-            [moeda(k["valor"]), f'{k["pedidos"]:,}', f'{k["unidades"]:,}',
+            [moeda(k["valor"]), formatar_numero_br(k["pedidos"], 0),
+             formatar_numero_br(k["unidades"], 0),
              moeda(k["ticket_medio"]), moeda(k["mediana"]) ]):
         coluna.metric(titulo, valor)
     st.info("O ticket médio é valor bruto elegível dividido pelo número de notas distintas. "
@@ -204,7 +238,20 @@ with tab_tempo:
     mensal = vendas_mensais(filtrados)
     mensal["Valor_Exibicao"] = valor_exibicao(mensal)
     st.bar_chart(mensal.set_index("Mes")["Valor_Exibicao"], y_label=f"Valor bruto ({rotulo_moeda()})", x_label="Mês")
-    st.dataframe(mensal, hide_index=True, width="stretch")
+    tabela_mensal = pd.DataFrame({
+        "Mês": mensal["Mes"],
+        "Vendas em libras (£)": mensal["Valor_GBP"].apply(
+            lambda x: formatar_valor_monetario(x, "GBP")
+        ),
+        "Pedidos distintos": mensal["Pedidos"].apply(
+            lambda x: formatar_numero_br(x, 0)
+        ),
+    })
+    if moeda_escolhida == "BRL (simulação)":
+        tabela_mensal["Vendas convertidas (R$)"] = mensal["Valor_Exibicao"].apply(
+            lambda x: formatar_valor_monetario(x, "BRL")
+        )
+    st.dataframe(tabela_mensal, hide_index=True, width="stretch")
     st.caption("Dezembro de 2011 possui dados somente até 09/12; "
                "o recorte mensal pode ser parcial conforme o filtro aplicado.")
 
@@ -215,7 +262,8 @@ with tab_paises:
     pais["Valor_Exibicao"] = valor_exibicao(pais)
     st.bar_chart(pais.head(10).set_index("País")["Valor_Exibicao"],
                  y_label=f"Valor bruto ({rotulo_moeda()})", x_label="País")
-    st.dataframe(pais, hide_index=True, width="stretch")
+    st.dataframe(tabela_comercial(pais, "País"), hide_index=True, width="stretch")
+    st.caption("Os valores em GBP são originais. Se selecionado BRL, a coluna R$ é uma conversão simulada pela taxa informada.")
     st.caption("Países são os registrados na base original; UK representa "
                "o mercado doméstico do varejista.")
 
@@ -226,7 +274,7 @@ with tab_produtos:
     if excluir:
         produtos = produtos.loc[~produtos["StockCode"].str.upper().isin(["DOT", "POST", "M"])]
     criterio = st.radio("Ordenar ranking por", ["Valor_GBP", "Unidades"], horizontal=True,
-                        format_func=lambda x: "Valor (£)" if x == "Valor_GBP" else "Unidades")
+                        format_func=lambda x: f"Valor ({rotulo_moeda()})" if x == "Valor_GBP" else "Unidades")
     top = produtos.sort_values(criterio, ascending=False).head(10).copy()
     top["Nome_PT"] = top.apply(
         lambda r: PRODUTOS_PT.get(str(r["StockCode"]), r["Description"]), axis=1
@@ -236,8 +284,24 @@ with tab_produtos:
     st.bar_chart(top.set_index("Item")["Valor_Exibicao" if criterio == "Valor_GBP" else "Unidades"],
                  y_label=f"Valor bruto ({rotulo_moeda()})" if criterio == "Valor_GBP" else "Unidades",
                  x_label="Itens")
-    st.dataframe(top[["StockCode", "Nome_PT", "Valor_GBP", "Unidades", "Pedidos"]],
-                 hide_index=True, width="stretch")
+    tabela_itens = pd.DataFrame({
+        "Código": top["StockCode"].astype(str),
+        "Produto / item": top["Nome_PT"].astype(str),
+        "Vendas em libras (£)": top["Valor_GBP"].apply(
+            lambda x: formatar_valor_monetario(x, "GBP")
+        ),
+        "Unidades vendidas": top["Unidades"].apply(
+            lambda x: formatar_numero_br(x, 0)
+        ),
+        "Pedidos distintos": top["Pedidos"].apply(
+            lambda x: formatar_numero_br(x, 0)
+        ),
+    })
+    if moeda_escolhida == "BRL (simulação)":
+        tabela_itens["Vendas convertidas (R$)"] = top["Valor_Exibicao"].apply(
+            lambda x: formatar_valor_monetario(x, "BRL")
+        )
+    st.dataframe(tabela_itens, hide_index=True, width="stretch")
     st.caption("O código 23843 registra um pedido atípico de 80.995 unidades. "
                "Os demais códigos não foram auditados individualmente; alguns podem ser serviços.")
 
